@@ -2,37 +2,25 @@ package site.nomoreparties.stellarburger;
 
 import com.github.javafaker.Faker;
 import io.qameta.allure.Description;
-import io.restassured.RestAssured;
 import io.restassured.response.Response;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.Assert;
 import org.junit.Test;
+import site.nomoreparties.stellarburger.api.client.UserClient;
+import site.nomoreparties.stellarburger.user.auth.UserAuthData;
+import site.nomoreparties.stellarburger.user.auth.UserCredentials;
 
 import java.util.UUID;
 
-import static io.restassured.RestAssured.given;
-import static io.restassured.RestAssured.with;
-import static io.restassured.http.ContentType.JSON;
-import static java.net.HttpURLConnection.*;
+import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
+import static java.net.HttpURLConnection.HTTP_OK;
 import static junit.framework.TestCase.assertEquals;
-import static org.apache.http.HttpHeaders.AUTHORIZATION;
+import static org.junit.Assert.assertFalse;
 
-public class CreateUserTest {
-
+public class CreateUserTest extends SetUp {
     private final Faker faker = new Faker();
-    public static final String BASE_URI_PATH = "https://stellarburgers.nomoreparties.site";
-    public static final String REGISTRATION_USER_PATH = "/api/auth/register";
-    public static final String DELETE_USER_PATH = "/api/auth/user";
-
     static String name;
     static String email;
     static String password;
-    static String accessToken;
-
-    @Before
-    public void setUp() {
-        RestAssured.baseURI = BASE_URI_PATH;
-    }
 
     @Test
     @Description("Проверка возможности создать пользователя при заполнении всех полей: имя, имэйл, пароль - запрос " +
@@ -43,20 +31,19 @@ public class CreateUserTest {
         email = faker.internet().emailAddress();
         password = faker.bothify("???????");
 
-        User user = new User();
-        user.withName(name);
-        user.withEmail(email);
-        user.withPassword(password);
+        UserCredentials userCredentials = new UserCredentials();
+        userCredentials.withName(name);
+        userCredentials.withEmail(email);
+        userCredentials.withPassword(password);
+        Response createUserResponse = UserClient.createUserResponse(userCredentials);
+        accessToken = createUserResponse.as(UserAuthData.class).getAccessToken();
 
-        Response createUserResponse = given()
-                .contentType(JSON)
-                .and()
-                .body(user)
-                .post(REGISTRATION_USER_PATH);
-        accessToken = createUserResponse.as(UserTokens.class).getAccessToken();
         assertEquals("Неверный статус код при создании пользователя", HTTP_OK,
                 createUserResponse.statusCode());
-
+        UserAuthData updatedUser = createUserResponse.as(UserAuthData.class);
+        Assert.assertTrue("Неверное значение поля success", updatedUser.isSuccess());
+        assertEquals("Неверное значение имя пользователя", name, updatedUser.getUser().getName());
+        assertEquals("Неверный email пользователя", email, updatedUser.getUser().getEmail());
     }
 
     @Test
@@ -66,25 +53,21 @@ public class CreateUserTest {
         email = faker.internet().emailAddress();
         password = faker.bothify("???????");
 
-        User user = new User();
-        user.withName(name);
-        user.withEmail(email);
-        user.withPassword(password);
+        UserCredentials userCredentials = new UserCredentials();
+        userCredentials.withName(name);
+        userCredentials.withEmail(email);
+        userCredentials.withPassword(password);
 
-        Response createUniqueUserResponse = given()
-                .contentType(JSON)
-                .and()
-                .body(user)
-                .post(REGISTRATION_USER_PATH);
-        accessToken = createUniqueUserResponse.as(UserTokens.class).getAccessToken();
+        Response createUniqueUserResponse = UserClient.createUserResponse(userCredentials);
+        accessToken = createUniqueUserResponse.as(UserAuthData.class).getAccessToken();
         //повторный запрос на создание пользователя, который существует
-        Response createSameUserResponse = given()
-                .contentType(JSON)
-                .and()
-                .body(user)
-                .post(REGISTRATION_USER_PATH);
+        Response createSameUserResponse = UserClient.createUserResponse(userCredentials);
+
         assertEquals("Неверный статус код при создании польователя, который уже есть", HTTP_FORBIDDEN,
                 createSameUserResponse.statusCode());
+        FailedResponse failedResponse = createSameUserResponse.as(FailedResponse.class);
+        assertFalse("Неверное значение поля success", failedResponse.isSuccess());
+        assertEquals("Неверное значение поля message", "User already exists", failedResponse.getMessage());
     }
 
     @Test
@@ -94,18 +77,18 @@ public class CreateUserTest {
         email = faker.internet().emailAddress();
         password = faker.bothify("???????");
 
-        User user = new User();
-        user.withEmail(email);
-        user.withPassword(password);
+        UserCredentials userCredentials = new UserCredentials();
+        userCredentials.withEmail(email);
+        userCredentials.withPassword(password);
 
-        Response createUserResponse = given()
-                .contentType(JSON)
-                .and()
-                .body(user)
-                .post(REGISTRATION_USER_PATH);
-        accessToken = createUserResponse.as(UserTokens.class).getAccessToken();
+        Response createUserResponse = UserClient.createUserResponse(userCredentials);
+        accessToken = createUserResponse.as(UserAuthData.class).getAccessToken();
+
         assertEquals("Неверный статус код при создании пользователя без имени", HTTP_FORBIDDEN,
                 createUserResponse.statusCode());
+        FailedResponse failedResponse = createUserResponse.as(FailedResponse.class);
+        assertFalse("Неверное значение поля success", failedResponse.isSuccess());
+        assertEquals("Неверное значение поля message", "Email, password and name are required fields", failedResponse.getMessage());
     }
 
     @Test
@@ -115,18 +98,18 @@ public class CreateUserTest {
         name = String.valueOf(UUID.randomUUID());
         password = faker.bothify("???????");
 
-        User user = new User();
-        user.withName(name);
-        user.withPassword(password);
+        UserCredentials userCredentials = new UserCredentials();
+        userCredentials.withName(name);
+        userCredentials.withPassword(password);
 
-        Response createUserResponse = given()
-                .contentType(JSON)
-                .and()
-                .body(user)
-                .post(REGISTRATION_USER_PATH);
-        accessToken = createUserResponse.as(UserTokens.class).getAccessToken();
+        Response createUserResponse = UserClient.createUserResponse(userCredentials);
+        accessToken = createUserResponse.as(UserAuthData.class).getAccessToken();
+
         assertEquals("Неверный статус код при создании пользователя без имэйла", HTTP_FORBIDDEN,
                 createUserResponse.statusCode());
+        FailedResponse failedResponse = createUserResponse.as(FailedResponse.class);
+        assertFalse("Неверное значение поля success", failedResponse.isSuccess());
+        assertEquals("Неверное значение поля message", "Email, password and name are required fields", failedResponse.getMessage());
     }
 
     @Test
@@ -136,25 +119,18 @@ public class CreateUserTest {
         name = String.valueOf(UUID.randomUUID());
         email = faker.internet().emailAddress();
 
-        User user = new User();
-        user.withName(name);
-        user.withEmail(email);
+        UserCredentials userCredentials = new UserCredentials();
+        userCredentials.withName(name);
+        userCredentials.withEmail(email);
 
-        Response createUserResponse = given()
-                .contentType(JSON)
-                .and()
-                .body(user)
-                .post(REGISTRATION_USER_PATH);
-        accessToken = createUserResponse.as(UserTokens.class).getAccessToken();
+        Response createUserResponse = UserClient.createUserResponse(userCredentials);
+        accessToken = createUserResponse.as(UserAuthData.class).getAccessToken();
+
         assertEquals("Неверный статус код при создании пользователя без пароля", HTTP_FORBIDDEN,
                 createUserResponse.statusCode());
+        FailedResponse failedResponse = createUserResponse.as(FailedResponse.class);
+        assertFalse("Неверное значение поля success", failedResponse.isSuccess());
+        assertEquals("Неверное значение поля message", "Email, password and name are required fields", failedResponse.getMessage());
 
     }
-
-    @After
-    public void tearDown() {
-        if (accessToken !=null)
-        with().contentType(JSON).header(AUTHORIZATION, accessToken).delete(DELETE_USER_PATH);
-    }
-
 }

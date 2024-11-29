@@ -53,7 +53,7 @@ public class CreateOrderTest extends SetUp {
         Response createOrderResponse = OrderClient.createOrderResponse(accessToken, ingredients);
 
         assertEquals("Неверный статус код при создании заказа авторизованным пользователем", HTTP_OK, createOrderResponse.statusCode());
-        CreateOrder createOrder = createUserResponse.as(CreateOrder.class);
+        CreateOrder createOrder = createOrderResponse.as(CreateOrder.class);
         assertTrue("Неверное значение поля success", createOrder.isSuccess());
         assertNotNull("Не вернулся номер заказа", createOrder.getOrder());
         assertNotNull("Не вернулся номер заказа", createOrder.getOrder().getNumber());
